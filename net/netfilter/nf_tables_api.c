@@ -9476,17 +9476,38 @@ void nft_chain_del(struct nft_chain *chain)
 static void nft_trans_gc_setelem_remove(struct nft_ctx *ctx,
 					struct nft_trans_gc *trans)
 {
-	void **priv = trans->priv;
 	unsigned int i;
 
+	rcu_read_lock();
 	for (i = 0; i < trans->count; i++) {
+
+		struct nft_trans_gc_key *key = &trans->keys[i];
+		const struct nft_set_ext *ext;
 		struct nft_set_elem elem = {
-			.priv = priv[i],
+			.priv = NULL,
 		};
+		int err;
+
+		memset(&elem, 0, sizeof(elem));
+
+		memcpy(&elem.key, key->key, sizeof(elem.key));
+
+		BUILD_BUG_ON(sizeof(elem.key) != sizeof(key->key));
+
+		err = nft_setelem_get(ctx, trans->set, &elem, NFT_SET_ELEM_GET_DEAD);
+
+		WARN_ON(err < 0);
+		WARN_ON(key->priv != elem.priv);
+
+		ext = nft_set_elem_ext(trans->set, elem.priv);
+		WARN_ON(!nft_set_elem_expired(ext));
+		WARN_ON(!nft_set_elem_is_dead(ext));
 
 		nft_setelem_data_deactivate(ctx->net, trans->set, &elem);
 		nft_setelem_remove(ctx->net, trans->set, &elem);
 	}
+
+	rcu_read_unlock();
 }
 
 void nft_trans_gc_destroy(struct nft_trans_gc *trans)
@@ -9507,7 +9528,7 @@ static void nft_trans_gc_trans_free(struct rcu_head *rcu)
 	ctx.net	= read_pnet(&trans->set->net);
 
 	for (i = 0; i < trans->count; i++) {
-		elem.priv = trans->priv[i];
+		elem.priv = trans->keys[i].priv;
 		if (!nft_setelem_is_catchall(trans->set, &elem))
 			atomic_dec(&trans->set->nelems);
 
@@ -9589,7 +9610,15 @@ struct nft_trans_gc *nft_trans_gc_alloc(struct nft_set *set,
 
 void nft_trans_gc_elem_add(struct nft_trans_gc *trans, void *priv)
 {
-	trans->priv[trans->count++] = priv;
+	const struct nft_set *set = trans->set;
+	const struct nft_set_ext *ext;
+
+	memset(&trans->keys[trans->count], 0, sizeof(trans->keys[0]));
+
+	ext = nft_set_elem_ext(set, priv);
+	memcpy(trans->keys[trans->count].key, nft_set_ext_key(ext), set->klen);
+
+	trans->keys[trans->count++].priv = priv;
 }
 
 static void nft_trans_gc_queue_work(struct nft_trans_gc *trans)

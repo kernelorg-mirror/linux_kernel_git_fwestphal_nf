@@ -1675,7 +1675,13 @@ struct nft_trans_flowtable {
 #define nft_trans_flowtable_flags(trans)	\
 	(((struct nft_trans_flowtable *)trans->data)->flags)
 
-#define NFT_TRANS_GC_BATCHCOUNT	256
+#define NFT_TRANS_GC_BATCHCOUNT	32
+
+struct nft_trans_gc_key {
+	u32 key[NFT_DATA_VALUE_MAXLEN / sizeof(u32)];
+	u32 flags;
+	void *priv;
+};
 
 struct nft_trans_gc {
 	struct list_head	list;
@@ -1683,7 +1689,7 @@ struct nft_trans_gc {
 	struct nft_set		*set;
 	u32			seq;
 	u16			count;
-	void			*priv[NFT_TRANS_GC_BATCHCOUNT];
+	struct nft_trans_gc_key keys[NFT_TRANS_GC_BATCHCOUNT];
 	struct rcu_head		rcu;
 };
 
