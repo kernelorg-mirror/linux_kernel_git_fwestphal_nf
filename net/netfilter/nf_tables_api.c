@@ -5165,6 +5165,9 @@ static void nft_set_catchall_destroy(const struct nft_ctx *ctx,
 static void nft_set_put(struct nft_set *set)
 {
 	if (refcount_dec_and_test(&set->refs)) {
+		unsigned int nelems = atomic_read(&set->nelems);
+
+		WARN(nelems, "set %s has element count of %u\n", set->name, nelems);
 		kfree(set->name);
 		kvfree(set);
 	}

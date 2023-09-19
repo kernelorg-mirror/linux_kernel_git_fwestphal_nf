@@ -428,8 +428,10 @@ struct nft_rhash_ctx {
 static void nft_rhash_elem_destroy(void *ptr, void *arg)
 {
 	struct nft_rhash_ctx *rhash_ctx = arg;
+	struct nft_set *set = (void *) rhash_ctx->set;
 
 	nf_tables_set_elem_destroy(&rhash_ctx->ctx, rhash_ctx->set, ptr);
+	atomic_dec(&set->nelems);
 }
 
 static void nft_rhash_destroy(const struct nft_ctx *ctx,
@@ -677,6 +679,7 @@ static int nft_hash_init(const struct nft_set *set,
 static void nft_hash_destroy(const struct nft_ctx *ctx,
 			     const struct nft_set *set)
 {
+	struct nft_set *mset = (struct nft_set *)set;
 	struct nft_hash *priv = nft_set_priv(set);
 	struct nft_hash_elem *he;
 	struct hlist_node *next;
@@ -685,6 +688,7 @@ static void nft_hash_destroy(const struct nft_ctx *ctx,
 	for (i = 0; i < priv->buckets; i++) {
 		hlist_for_each_entry_safe(he, next, &priv->table[i], node) {
 			hlist_del_rcu(&he->node);
+			atomic_dec(&mset->nelems);
 			nf_tables_set_elem_destroy(ctx, set, he);
 		}
 	}
