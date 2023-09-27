@@ -243,7 +243,7 @@ nft_rbtree_gc_elem(const struct nft_set *__set, struct nft_rbtree *priv,
 	struct nft_rbtree_elem *rbe_prev;
 	struct nft_trans_gc *gc;
 
-	gc = nft_trans_gc_alloc(set, 0, GFP_ATOMIC);
+	gc = nft_trans_gc_alloc(set, GFP_ATOMIC);
 	if (!gc)
 		return ERR_PTR(-ENOMEM);
 
@@ -640,7 +640,7 @@ static void nft_rbtree_gc(struct nft_set *set)
 	net  = read_pnet(&set->net);
 	nft_net = nft_pernet(net);
 
-	gc = nft_trans_gc_alloc(set, 0, GFP_KERNEL);
+	gc = nft_trans_gc_alloc(set, GFP_KERNEL);
 	if (!gc)
 		return;
 
