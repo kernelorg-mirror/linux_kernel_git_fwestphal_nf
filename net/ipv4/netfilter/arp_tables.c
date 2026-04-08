@@ -86,7 +86,7 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 				   const struct arpt_arp *arpinfo)
 {
 	const char *arpptr = (char *)(arphdr + 1);
-	const char *src_devaddr, *tgt_devaddr;
+	const char *src_devaddr, *tgt_devaddr = NULL;
 	__be32 src_ipaddr, tgt_ipaddr;
 	long ret;
 
@@ -110,13 +110,23 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 	arpptr += dev->addr_len;
 	memcpy(&src_ipaddr, arpptr, sizeof(u32));
 	arpptr += sizeof(u32);
-	tgt_devaddr = arpptr;
-	arpptr += dev->addr_len;
+	switch (dev->type) {
+#if IS_ENABLED(CONFIG_FIREWIRE_NET)
+	case ARPHRD_IEEE1394:
+		break;
+#endif
+	default:
+		tgt_devaddr = arpptr;
+		arpptr += dev->addr_len;
+		break;
+	}
 	memcpy(&tgt_ipaddr, arpptr, sizeof(u32));
 
 	if (NF_INVF(arpinfo, ARPT_INV_SRCDEVADDR,
 		    arp_devaddr_compare(&arpinfo->src_devaddr, src_devaddr,
-					dev->addr_len)) ||
+					dev->addr_len)))
+		return 0;
+	if (tgt_devaddr &&
 	    NF_INVF(arpinfo, ARPT_INV_TGTDEVADDR,
 		    arp_devaddr_compare(&arpinfo->tgt_devaddr, tgt_devaddr,
 					dev->addr_len)))
