@@ -103,6 +103,14 @@ static void nft_fwd_neigh_eval(const struct nft_expr *expr,
 	struct net_device *dev;
 	int neigh_table;
 
+	dev = dev_get_by_index_rcu(nft_net(pkt), oif);
+	if (dev == NULL) {
+		/* Only allowed for ingress: pass this
+		 * up the stack for processing.
+		 */
+		return;
+	}
+
 	switch (priv->nfproto) {
 	case NFPROTO_IPV4: {
 		struct iphdr *iph;
@@ -155,10 +163,6 @@ static void nft_fwd_neigh_eval(const struct nft_expr *expr,
 		verdict = NF_DROP;
 		goto out;
 	}
-
-	dev = dev_get_by_index_rcu(nft_net(pkt), oif);
-	if (dev == NULL)
-		return;
 
 	skb->dev = dev;
 	skb_clear_tstamp(skb);
